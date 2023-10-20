@@ -24,17 +24,12 @@ import org.opencv.imgproc.Imgproc;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
-import java.net.URI;
-//import java.net.http.HttpClient;
-//import java.net.http.HttpRequest;
-//import java.net.http.HttpRequest.BodyPublishers;
-//import java.net.http.HttpResponse;
-//import java.net.http.HttpResponse.BodyHandlers;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -44,13 +39,19 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+/*import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpRequest.BodyPublishers;
+import java.net.http.HttpResponse;
+import java.net.http.HttpResponse.BodyHandlers;*/
+
 public class MainActivity extends AppCompatActivity implements CameraBridgeViewBase.CvCameraViewListener2{
 
     private static final String  TAG = "MAIN";
 
     static boolean Process = true;
-    //static String sol = "";
-    StringBuilder sol = new StringBuilder();
+    static String sol = "";
+    //StringBuilder sol = new StringBuilder();
 
     static List<Rect> squares = new ArrayList<Rect>();
     static int[][] sym_row_dist = {{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0}};
@@ -334,9 +335,9 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             update_number_dist(numbers);
             num_norm = gen_num_norm(n_dist);
 
-            Log.d(TAG, "row dist: " + sym_row_norm);
+/*            Log.d(TAG, "row dist: " + sym_row_norm);
             Log.d(TAG, "col dist: " + sym_col_norm);
-            Log.d(TAG, "num dist: " + num_norm);
+            Log.d(TAG, "num dist: " + num_norm);*/
 
             if ( sym_row_norm.stream().map(s -> Collections.max(s)).filter(s -> s < 75).count() == 0 &&
                     sym_row_norm.stream().map(s -> Collections.max(s)).filter(s -> s < 75).count() == 0 &&
@@ -348,7 +349,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
                 num_weighted = get_num_weighted(n_dist);
 
-                Log.d(TAG, "num weighted: " + num_weighted);
+                //Log.d(TAG, "num weighted: " + num_weighted);
 
                 int[][] puzzle = new int[5][5];
                 for (int row = 0; row < 5; row++){
@@ -394,21 +395,29 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
                 Log.d(TAG, "puzzle detected: " + sb.toString());
 
-                try{
-                    URL urlObj = new URL("https://futoshiki-solver.herokuapp.com/");
+                sol = doPost("https://cifurin.pythonanywhere.com/test",sb.toString());
+                //doPost("http://192.168.86.32:8000","");
+                //doGet("https://192.168.86.32:8000/");
+
+               /* try{
+                    Log.d(TAG, "trying to connect to server: " + sb.toString());
+                    //URL urlObj = new URL("https://futoshiki-solver.herokuapp.com/");
+                    URL urlObj = new URL("http://192.168.86.32:8000/");
                     HttpURLConnection conn = (HttpURLConnection) urlObj.openConnection();
                     conn.setDoOutput(true);
                     conn.setRequestMethod("POST");
                     conn.setRequestProperty("Accept-Charset", "UTF-8");
 
-                    conn.setReadTimeout(10000);
-                    conn.setConnectTimeout(15000);
+                    //conn.setReadTimeout(10000);
+                    //conn.setConnectTimeout(15000);
 
-                    conn.connect();
+                    //conn.connect();
                     String paramsString = sb.toString();
+                    paramsString="";
 
                     DataOutputStream wr = new DataOutputStream(conn.getOutputStream());
-                    wr.writeBytes(paramsString);
+                    //wr.writeBytes(paramsString);
+                    wr.write(paramsString.getBytes(StandardCharsets.UTF_8));
                     wr.flush();
                     wr.close();
 
@@ -433,10 +442,11 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
                 } catch (IOException e) {
                     e.printStackTrace();
-                }
+                    Log.d(TAG, "IO Exception ");
+                }*/
 
 
-/*                HttpClient client = HttpClient.newHttpClient();
+              /* HttpClient client = HttpClient.newHttpClient();
 
                 HttpRequest request = HttpRequest.newBuilder()
                         //.uri(URI.create("http://127.0.0.1:8000/"))
@@ -447,9 +457,9 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                 HttpResponse<String> response =
                         client.send(request, BodyHandlers.ofString());
 
-                sol = response.body();*/
+                sol = response.body();
 
-                //System.out.println(sol);
+                System.out.println(sol);*/
 
                 if (sol.length() > 0){
                     Process = false;
@@ -495,6 +505,75 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         if (cameraView != null) {
             cameraView.disableView();
         }
+    }
+
+    public String doPost(String urlString, String params) {
+        try {
+            URL url = new URL(urlString);
+            HttpURLConnection urlConnection = null;
+            try {
+                urlConnection = (HttpURLConnection) url.openConnection();
+
+                urlConnection.setRequestMethod("POST");
+                urlConnection.setReadTimeout(5000);
+                urlConnection.setConnectTimeout(10000);
+                urlConnection.setDoOutput(true);
+                urlConnection.setRequestProperty("Accept-Charset", "UTF-8");
+                //urlConnection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+
+                OutputStream os = urlConnection.getOutputStream();
+                os.write(params.getBytes());
+                os.flush();
+                os.close();
+
+                int responseCode = urlConnection.getResponseCode();
+
+                if (responseCode == 200) {
+                    InputStream in = new BufferedInputStream(urlConnection.getInputStream());
+                    return readStream(in);
+                }
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            } finally {
+                urlConnection.disconnect();
+            }
+        } catch (MalformedURLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    public String doGet(String urlString) {
+        try {
+            URL url = new URL(urlString);
+            HttpURLConnection urlConnection = null;
+            try {
+                urlConnection = (HttpURLConnection) url.openConnection();
+                InputStream in = new BufferedInputStream(urlConnection.getInputStream());
+                return readStream(in);
+            } catch (IOException e) {
+                e.printStackTrace();
+            } finally {
+                urlConnection.disconnect();
+            }
+        } catch (MalformedURLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    private String readStream(InputStream in) throws IOException {
+        BufferedReader br = new BufferedReader(new InputStreamReader(in));
+        StringBuilder sb = new StringBuilder();
+        String line = null;
+        while ((line = br.readLine()) != null) {
+            sb.append(line + "\n");
+        }
+        System.out.println(sb.toString());
+        br.close();
+        Log.d(TAG, "result from server: " + sb.toString());
+        return sb.toString();
     }
 
     private static double angle(Point pt1, Point pt2, Point pt0) {
